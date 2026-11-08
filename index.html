@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a1a2e">
+<title>Loci 手机</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  :root {
+    --bg: #0f0f1a; --card: #1a1a2e; --card2: #22223a;
+    --text: #e8e8f0; --dim: #8888a5; --accent: #7c6cff; --ok: #4ade80; --warn: #f87171;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  header {
+    position: sticky; top: 0; z-index: 10; display: flex; align-items: center;
+    justify-content: space-between; padding: 14px 18px;
+    background: rgba(15,15,26,.92); backdrop-filter: blur(10px);
+    border-bottom: 1px solid #2a2a45;
+  }
+  header h1 { font-size: 18px; font-weight: 700; }
+  header .sync { font-size: 12px; color: var(--dim); }
+  main { padding: 14px 16px 90px; }
+  .card {
+    background: var(--card); border-radius: 14px; padding: 14px 16px;
+    margin-bottom: 12px; border: 1px solid #262640;
+  }
+  .card h2 { font-size: 13px; color: var(--dim); font-weight: 600; margin-bottom: 10px; }
+  .task { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid #262640; align-items: baseline; }
+  .task:first-of-type { border-top: none; }
+  .task .date { flex-shrink: 0; font-size: 12px; color: var(--accent); font-variant-numeric: tabular-nums; min-width: 76px; }
+  .task .title { font-size: 15px; line-height: 1.4; }
+  .task.today .date { color: var(--ok); font-weight: 700; }
+  .tag { display: inline-block; font-size: 11px; background: #2a2a4a; color: var(--dim); border-radius: 6px; padding: 2px 7px; margin-left: 6px; vertical-align: middle; }
+  input, textarea, select {
+    width: 100%; background: var(--card2); border: 1px solid #33335a; color: var(--text);
+    border-radius: 10px; padding: 11px 12px; font-size: 15px; outline: none; margin-bottom: 10px;
+    font-family: inherit;
+  }
+  input:focus, textarea:focus { border-color: var(--accent); }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  button.primary {
+    width: 100%; background: var(--accent); color: #fff; border: none;
+    border-radius: 12px; padding: 13px; font-size: 16px; font-weight: 600;
+  }
+  button.primary:active { opacity: .8; }
+  button.primary:disabled { opacity: .5; }
+  .toast {
+    position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%);
+    background: #2a2a4a; color: var(--text); padding: 10px 18px; border-radius: 12px;
+    font-size: 14px; opacity: 0; transition: opacity .3s; pointer-events: none; max-width: 86vw;
+  }
+  .toast.show { opacity: 1; }
+  .toast.ok { border: 1px solid var(--ok); }
+  .toast.err { border: 1px solid var(--warn); }
+  nav {
+    position: fixed; bottom: 0; left: 0; right: 0; display: flex;
+    background: rgba(15,15,26,.95); backdrop-filter: blur(10px);
+    border-top: 1px solid #2a2a45; padding-bottom: env(safe-area-inset-bottom);
+  }
+  nav button {
+    flex: 1; background: none; border: none; color: var(--dim);
+    font-size: 11px; padding: 10px 0 8px; display: flex; flex-direction: column; gap: 3px; align-items: center;
+  }
+  nav button .ico { font-size: 20px; }
+  nav button.on { color: var(--accent); }
+  .page { display: none; }
+  .page.on { display: block; }
+  .empty { color: var(--dim); text-align: center; padding: 26px 0; font-size: 14px; }
+  .hint { font-size: 12px; color: var(--dim); line-height: 1.6; margin-top: 8px; }
+  a { color: var(--accent); }
+  .scrap { font-size: 14px; line-height: 1.5; padding: 8px 0; border-top: 1px solid #262640; }
+  .scrap:first-of-type { border-top: none; }
+  .scrap .t { color: var(--dim); font-size: 11px; margin-top: 3px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🧠 Loci</h1>
+  <span class="sync" id="syncState">未连接</span>
+</header>
+<main>
+
+  <!-- 任务 -->
+  <section class="page on" id="page-tasks">
+    <div class="card">
+      <h2>任务与日程</h2>
+      <div id="taskList"><div class="empty">加载中…</div></div>
+      <div class="hint">数据来自 GitHub fqs22/loci-brain，电脑守护每分钟同步进大脑</div>
+    </div>
+  </section>
+
+  <!-- 新建 -->
+  <section class="page" id="page-new">
+    <div class="card">
+      <h2>新建待办</h2>
+      <input id="tTitle" placeholder="做什么？" maxlength="80">
+      <div class="row">
+        <input id="tDate" type="date">
+        <input id="tTime" type="time">
+      </div>
+      <button class="primary" id="btnTask">提交待办</button>
+      <div class="hint">不填日期 = 无日期任务；电脑守护执行后自动出现在任务页</div>
+    </div>
+    <div class="card">
+      <h2>记一下</h2>
+      <textarea id="sText" rows="3" placeholder="想法、灵感、链接、备忘…" maxlength="500"></textarea>
+      <button class="primary" id="btnScrap" style="margin-top:4px">存入收集箱</button>
+    </div>
+  </section>
+
+  <!-- 收集箱 -->
+  <section class="page" id="page-scrap">
+    <div class="card">
+      <h2>最近收集</h2>
+      <div id="scrapList"><div class="empty">加载中…</div></div>
+    </div>
+  </section>
+
+  <!-- 设置 -->
+  <section class="page" id="page-set">
+    <div class="card">
+      <h2>GitHub 连接</h2>
+      <input id="pat" type="password" placeholder="Fine-grained PAT（loci-brain 读写权限）">
+      <button class="primary" id="btnSave">保存并连接</button>
+      <div class="hint">
+        生成地址：github.com/settings/personal-access-tokens/new<br>
+        仅勾选 <b>fqs22/loci-brain</b> 的 Contents: Read and write，有效期设短一些。<br>
+        token 只存在本机浏览器，不上传任何服务器。
+      </div>
+    </div>
+    <div class="card">
+      <h2>电脑端状态</h2>
+      <div class="hint">
+        大脑：D:\project\loci（本地运行时）<br>
+        备份：github.com/fqs22/loci-brain（数据权威副本）<br>
+        提醒：Dashboard（电脑 8765 端口 / Tailscale）负责 webpush 响铃
+      </div>
+    </div>
+    <div class="card">
+      <h2>清除</h2>
+      <button class="primary" id="btnClear" style="background:#3a2030">清除本机 token</button>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button class="on" data-page="page-tasks"><span class="ico">📋</span>任务</button>
+  <button data-page="page-new"><span class="ico">➕</span>新建</button>
+  <button data-page="page-scrap"><span class="ico">📥</span>收集</button>
+  <button data-page="page-set"><span class="ico">⚙️</span>设置</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const REPO = "fqs22/loci-brain";
+const $ = (id) => document.getElementById(id);
+let TOKEN = localStorage.getItem("loci_pat") || "";
+
+function toast(msg, ok) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "toast show " + (ok ? "ok" : "err");
+  setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+function setState(s) { $("syncState").textContent = s; }
+
+async function gh(path, opts = {}) {
+  const r = await fetch(`https://api.github.com/repos/${REPO}/${path}`, {
+    ...opts,
+    headers: {
+      Authorization: `Bearer ${TOKEN}`,
+      Accept: "application/vnd.github+json",
+      "Content-Type": "application/json",
+      ...(opts.headers || {}),
+    },
+  });
+  if (r.status === 401) { setState("token 无效"); throw new Error("token 无效，请到设置页重新保存"); }
+  if (!r.ok) throw new Error(`GitHub API ${r.status}`);
+  return r.json();
+}
+
+async function readFile(path) {
+  const j = await gh(`contents/${path}?t=${Date.now()}`);
+  return JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g, "")))));
+}
+
+async function writeFile(path, text, message) {
+  let sha;
+  try { sha = (await gh(`contents/${path}`)).sha; } catch (e) { if (!`${e}`.includes("404")) throw e; }
+  const content = btoa(unescape(encodeURIComponent(text)));
+  await gh(`contents/${path}`, {
+    method: "PUT",
+    body: JSON.stringify({ message, content, ...(sha ? { sha } : {}) }),
+  });
+}
+
+async function loadTasks() {
+  $("taskList").innerHTML = `<div class="empty">加载中…</div>`;
+  try {
+    const data = await readFile("tasks/tasks.json");
+    const today = new Date().toISOString().slice(0, 10);
+    const open = (data.tasks || [])
+      .filter((t) => t.status === "open")
+      .sort((a, b) => (a.date || "9999") + (a.startTime || "") > (b.date || "9999") + (b.startTime || "") ? 1 : -1);
+    if (!open.length) { $("taskList").innerHTML = `<div class="empty">暂无任务</div>`; return; }
+    $("taskList").innerHTML = open.map((t) => `
+      <div class="task ${t.date === today ? "today" : ""}">
+        <span class="date">${t.date || "无日期"}${t.startTime ? " " + t.startTime : ""}</span>
+        <span class="title">${t.title}</span>
+      </div>`).join("");
+    setState(`已连接 · ${open.length} 个任务`);
+  } catch (e) {
+    $("taskList").innerHTML = `<div class="empty">${e}</div>`;
+  }
+}
+
+async function loadScraps() {
+  $("scrapList").innerHTML = `<div class="empty">加载中…</div>`;
+  try {
+    const j = await gh(`contents/references?t=${Date.now()}`);
+    const files = j.filter((f) => f.name.endsWith(".json") || f.name.endsWith(".md")).slice(-12).reverse();
+    if (!files.length) { $("scrapList").innerHTML = `<div class="empty">收集箱是空的</div>`; return; }
+    const rows = await Promise.all(files.map(async (f) => {
+      try {
+        const jf = await gh(`contents/references/${f.name}?t=${Date.now()}`);
+        const raw = decodeURIComponent(escape(atob(jf.content.replace(/\n/g, ""))));
+        let text = raw, ts = "";
+        try { const o = JSON.parse(raw); text = o.text || o.content || raw.slice(0, 120); ts = (o.created || "").slice(0, 16).replace("T", " "); }
+        catch (e) { text = raw.slice(0, 140); }
+        return `<div class="scrap">${text}<div class="t">${ts || f.name}</div></div>`;
+      } catch (e) { return ""; }
+    }));
+    $("scrapList").innerHTML = rows.join("");
+  } catch (e) {
+    $("scrapList").innerHTML = `<div class="empty">${e}</div>`;
+  }
+}
+
+function stamp() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+
+async function submitCmd(cmd, okMsg) {
+  if (!TOKEN) { toast("请先到设置页配置 token", false); return; }
+  try {
+    await writeFile(
+      `mobile-inbox/pending/${stamp()}.json`,
+      JSON.stringify(cmd),
+      `mobile: ${cmd.action}`
+    );
+    toast(okMsg, true);
+  } catch (e) { toast(`提交失败: ${e}`, false); }
+}
+
+$("btnTask").onclick = () => {
+  const title = $("tTitle").value.trim();
+  if (!title) { toast("先写点内容", false); return; }
+  submitCmd(
+    { action: "task", title, date: $("tDate").value || null, start: $("tTime").value || null },
+    "✅ 已提交，守护一分钟内执行"
+  );
+  $("tTitle").value = "";
+};
+
+$("btnScrap").onclick = () => {
+  const text = $("sText").value.trim();
+  if (!text) { toast("先写点内容", false); return; }
+  submitCmd({ action: "scrap", text }, "✅ 已提交，守护一分钟内执行");
+  $("sText").value = "";
+};
+
+$("btnSave").onclick = async () => {
+  TOKEN = $("pat").value.trim();
+  if (!TOKEN) { toast("先粘贴 token", false); return; }
+  setState("连接中…");
+  try {
+    await gh("");
+    localStorage.setItem("loci_pat", TOKEN);
+    toast("已连接 ✅", true);
+    loadTasks();
+  } catch (e) { toast(`${e}`, false); }
+};
+
+$("btnClear").onclick = () => {
+  localStorage.removeItem("loci_pat");
+  TOKEN = "";
+  $("pat").value = "";
+  setState("未连接");
+  toast("已清除", true);
+};
+
+// 页面切换
+document.querySelectorAll("nav button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll("nav button").forEach((x) => x.classList.remove("on"));
+    b.classList.add("on");
+    document.querySelectorAll(".page").forEach((p) => p.classList.remove("on"));
+    $(b.dataset.page).classList.add("on");
+    if (b.dataset.page === "page-tasks") loadTasks();
+    if (b.dataset.page === "page-scrap") loadScraps();
+    if (b.dataset.page === "page-set") $("pat").value = TOKEN;
+  };
+});
+
+// 启动
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+if (TOKEN) {
+  $("pat").value = TOKEN;
+  loadTasks();
+} else {
+  $("taskList").innerHTML = `<div class="empty">先到「设置」页配置 GitHub token</div>`;
+  setState("未连接");
+}
+// 每 2 分钟自动刷新任务页
+setInterval(() => { if (TOKEN) loadTasks(); }, 120000);
+</script>
+</body>
+</html>
